@@ -1,0 +1,22 @@
+# ============================================================
+# robots.txt — Paju Lounge & Family Restaurant
+# https://pajulounge.com.np/robots.txt
+#
+# Allows all search engines to crawl and index the entire site.
+# ============================================================
+
+# All crawlers
+User-agent: *
+Allow: /
+
+# Block access to any future admin or private directories
+Disallow: /admin/
+Disallow: /private/
+Disallow: /.env
+Disallow: /node_modules/
+
+# Crawl-delay for polite bots (1 second)
+Crawl-delay: 1
+
+# Sitemap location — tells Google/Bing where to find the sitemap
+Sitemap: https://pajulounge.com.np/sitemap.xml

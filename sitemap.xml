@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  XML SITEMAP — Paju Lounge & Family Restaurant
+  Submit this file to:
+    Google Search Console: https://search.google.com/search-console
+    Bing Webmaster Tools:  https://www.bing.com/webmasters
+  URL: https://pajulounge.com.np/sitemap.xml
+
+  KEEP UPDATED: Change <lastmod> whenever you update a page.
+-->
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml"
+  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+>
+
+  <!-- ── Homepage ── -->
+  <url>
+    <loc>https://pajulounge.com.np/</loc>
+    <lastmod>2024-01-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://pajulounge.com.np/assets/logo/heromomo.webp</image:loc>
+      <image:title>Paju Lounge &amp; Family Restaurant — Dhading Bensi</image:title>
+      <image:caption>Fresh momo and food at Paju Lounge, Dhading Bensi's most loved restaurant since 1993</image:caption>
+      <image:geo_location>Dhading Bensi, Dhading, Nepal</image:geo_location>
+    </image:image>
+  </url>
+
+  <!-- ── Menu Page ── -->
+  <url>
+    <loc>https://pajulounge.com.np/menu.html</loc>
+    <lastmod>2024-01-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+</urlset>
