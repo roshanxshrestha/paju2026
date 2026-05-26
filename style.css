@@ -1174,7 +1174,7 @@ a:focus-visible {
   gap: .65rem;
   padding: .5rem;
   border: 1px solid var(--c-border);
-  border-radius: 999px;
+  border-radius: 9px;
   background: rgba(255, 255, 255, .035);
   box-shadow: var(--sh-sm);
 }
