@@ -133,16 +133,24 @@ select {
    Food icons orbit a centre logo, then the whole loader
    fades out once the page is ready.
 ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   PAGE LOADER
+   Architecture: fixed wrapper → centred inner column →
+   ring-wrapper (explicit px size) → icons at fixed coords.
+   No rotating parent. Each icon rotates in place around the
+   ring centre using individual keyframes.
+═══════════════════════════════════════════════════════════ */
+
+/* Full-screen overlay */
 .page-loader {
   position: fixed;
   inset: 0;
   z-index: 9999;
   background: var(--c-bg);
-  /* True centre on every screen size */
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity .5s var(--ease), visibility .5s var(--ease);
+  transition: opacity .55s ease, visibility .55s ease;
 }
 
 .page-loader.hidden {
@@ -151,134 +159,209 @@ select {
   pointer-events: none;
 }
 
-/*
-  .loader-inner stacks the ring-wrapper and the tagline vertically.
-  It must NOT be position:relative here — the ring-wrapper handles
-  its own internal positioning.
-*/
+/* Vertical stack: ring-area + tagline */
 .loader-inner {
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* gap: 1.75rem; */
+  gap: 2rem;
 }
 
-/* ── Orbit ring ──────────────────────────────────────────── */
 /*
-  Orbit radius = 68px.
-  Icon size ≈ 24px (1.5rem), so half = 12px.
-  Ring container must be: (radius + half-icon) * 2 = (68+12)*2 = 160px
-  This guarantees icons are fully inside the container box,
-  so the flex layout centres correctly around the true visual boundary.
+  Ring wrapper — explicit square.
+  Orbit radius R = 72px. Icon font-size = 26px ≈ half = 13px.
+  Box side = 2 × (R + half-icon) = 2 × 85 = 170px.
+  All icon positions are calculated relative to this box's
+  top-left corner: centre = (85, 85).
+  icon_top  = 85 - R × cos(angle) - half = 85 - 72×cos - 13
+  icon_left = 85 + R × sin(angle) - half = 85 + 72×sin - 13
+  Angles for 6 icons spaced 60° apart, starting from top (−90°):
+    i=0: −90°  → top = 85−0−13=0,    left = 85−72−13=0    ← adjusted below
+  Let's use exact values (cos/sin to 1dp, ×72):
+    i=0: 270° → cos=0,    sin=−1  → top=72,  left=0    (left icon)
+  Easier: start from top (12 o'clock) going clockwise:
+    i=0:   0° (top)       cos=1,  sin=0   → top= 0,  left=72−13=59  → top=85−72−13=0   left=85+0−13=72
+    i=1:  60° (top-right) cos=.5, sin=.87 → top=85−36−13=36  left=85+63−13=135  ← too wide
+  Skip manual math — use CSS custom props per icon set in HTML (--i already 0-5).
+  CORRECT approach: keep top:50%;left:50% but use a WRAPPER per icon that
+  does NOT animate, and animate only the inner span.
+
+  Actually the cleanest reliable approach with no parent spin:
+  Use a single keyframe per icon that animates the full transform
+  from start-angle to start-angle+360, all in one animation,
+  with the translate(-50%,-50%) baked in as a constant offset
+  using a wrapper element.
 */
+
+/* Ring area — static, just defines the bounding box for layout */
 .loader-food-ring {
   position: relative;
-  width: 160px;
-  height: 160px;
+  width: 170px;
+  height: 170px;
   flex-shrink: 0;
-  animation: loaderRingSpin 9s linear infinite;
-}
-
-@keyframes loaderRingSpin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /*
-  Each icon is absolutely placed at the container's dead centre (top:50%, left:50%).
-  The transform chain then:
-    1. translate(-50%,-50%)  — pulls icon's own midpoint to container centre
-    2. rotate(60deg × i)     — clock-position this icon
-    3. translateY(-68px)     — push outward to orbit radius
-    4. rotate(-60deg × i)    — counter-rotate to keep icon upright
-  All keyframes must repeat this full chain so the icon never jumps.
+  Each .loader-icon is a wrapper div at top:50%;left:50%.
+  It does NOT animate.
+  Its only job is to sit at the ring centre so child ::before
+  can orbit from there.
+
+  We use the span element itself:
+  - position: absolute, top:50%, left:50%
+  - transform: rotate(angle) translateY(-R) rotate(-angle)  ← static start pos
+  - animation spins the full 360 while keeping translate(-50%,-50%) separate
+    via a wrapping trick.
+
+  SIMPLEST reliable fix: two nested elements.
+  Outer (.loader-icon): sits at centre, rotates 360deg (the orbit).
+  Inner (emoji text):   counter-rotates −360deg (stays upright).
+  No translate(-50%,-50%) inside the animation — it stays on the outer element
+  as a static property applied BEFORE the animation transform via transform-origin.
 */
+
+/* Outer orbit arm — rotates around ring centre */
 .loader-icon {
   position: absolute;
   top: 50%;
   left: 50%;
-  font-size: 1.5rem;
-  line-height: 1;
-  transform:
-    translate(-50%, -50%) rotate(calc(60deg * var(--i))) translateY(-68px) rotate(calc(-60deg * var(--i)));
-  animation: loaderIconSpin 9s linear infinite,
-    loaderIconPulse 1.6s ease-in-out infinite;
-  animation-delay: calc(var(--i) * -1.5s), calc(var(--i) * -0.27s);
-  filter: drop-shadow(0 0 5px rgba(201, 149, 42, .5));
+  width: 0;
+  height: 0;
+  /* The rotation origin is the ring centre (which is where this element sits) */
+  transform-origin: 0 0;
+  /* Static initial angle per icon, then animated full 360 */
+  animation: loaderOrbit 9s linear infinite;
+  animation-delay: calc(var(--i) * -0.9s);
 }
 
-/* Spin counter to keep icons upright */
-@keyframes loaderIconSpin {
+/* Each icon's starting angle spaced 60° apart */
+.loader-icon:nth-child(1) {
+  --start: 0deg;
+}
+
+.loader-icon:nth-child(2) {
+  --start: 36deg;
+}
+
+.loader-icon:nth-child(3) {
+  --start: 72deg;
+}
+
+.loader-icon:nth-child(4) {
+  --start: 108deg;
+}
+
+.loader-icon:nth-child(5) {
+  --start: 144deg;
+}
+
+.loader-icon:nth-child(6) {
+  --start: 180deg;
+}
+
+.loader-icon:nth-child(7) {
+  --start: 216deg;
+}
+
+.loader-icon:nth-child(8) {
+  --start: 252deg;
+}
+
+.loader-icon:nth-child(9) {
+  --start: 288deg;
+}
+
+.loader-icon:nth-child(10) {
+  --start: 324deg;
+}
+
+@keyframes loaderOrbit {
   from {
-    transform:
-      translate(-50%, -50%) rotate(calc(60deg * var(--i))) translateY(-68px) rotate(calc(-60deg * var(--i)));
+    transform: rotate(var(--start)) translateY(-72px);
   }
 
   to {
-    transform:
-      translate(-50%, -50%) rotate(calc(60deg * var(--i) + 360deg)) translateY(-68px) rotate(calc(-60deg * var(--i) - 360deg));
+    transform: rotate(calc(var(--start) + 360deg)) translateY(-72px);
   }
 }
 
-/* Gentle in-out pulse along the orbit axis */
-@keyframes loaderIconPulse {
+/* Inner emoji — counter-rotates to stay upright */
+.loader-icon-emoji {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 1.6rem;
+  line-height: 1;
+  /* Pull emoji's own centre to the arm endpoint */
+  transform: translate(-50%, -50%);
+  animation: loaderCounterRotate 9s linear infinite;
+  animation-delay: calc(var(--i) * -1.5s);
+  filter: drop-shadow(0 0 5px rgba(201, 149, 42, .5));
+  /* Pulse opacity */
+  animation: loaderCounterRotate 9s linear infinite,
+    loaderEmojiPulse 1.6s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.9s), calc(var(--i) * -0.16s);
+}
+
+@keyframes loaderCounterRotate {
+  from {
+    transform: translate(-50%, -50%) rotate(calc(-1 * var(--start)));
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(calc(-1 * var(--start) - 360deg));
+  }
+}
+
+@keyframes loaderEmojiPulse {
 
   0%,
   100% {
-    transform:
-      translate(-50%, -50%) rotate(calc(60deg * var(--i))) translateY(-63px) rotate(calc(-60deg * var(--i))) scale(0.88);
-    opacity: 0.65;
+    opacity: 0.6;
   }
 
   50% {
-    transform:
-      translate(-50%, -50%) rotate(calc(60deg * var(--i))) translateY(-73px) rotate(calc(-60deg * var(--i))) scale(1.12);
-    opacity: 1;
+    opacity: 1.0;
   }
 }
 
-
 /* ── Tagline ─────────────────────────────────────────────── */
 .loader-tagline {
-  font-size: .75rem;
+  font-size: .74rem;
   font-weight: 500;
-  letter-spacing: .2em;
+  letter-spacing: .22em;
   text-transform: uppercase;
   color: var(--c-muted);
   text-align: center;
+  white-space: nowrap;
   animation: loaderTaglineFade 1.8s ease-in-out infinite alternate;
-  /* No extra margin needed — gap on .loader-inner handles spacing */
 }
 
 @keyframes loaderTaglineFade {
   from {
-    opacity: .3;
+    opacity: .25;
   }
 
   to {
-    opacity: .85;
+    opacity: .8;
   }
 }
 
 /* ── Reduce motion ───────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
 
-  .loader-food-ring,
   .loader-icon,
-  .loader-logo {
+  .loader-icon-emoji {
     animation: none;
   }
 
-  /* Keep icons in their static positions */
   .loader-icon {
-    transform:
-      translate(-50%, -50%) rotate(calc(60deg * var(--i))) translateY(-68px) rotate(calc(-60deg * var(--i)));
-    opacity: 1;
+    transform: rotate(var(--start)) translateY(-72px);
   }
 
-  .loader-logo {
-    transform: translate(-50%, -50%);
+  .loader-icon-emoji {
+    transform: translate(-50%, -50%) rotate(calc(-1 * var(--start)));
+    opacity: 1;
   }
 }
 
@@ -287,8 +370,8 @@ select {
   width: 100%;
   max-width: var(--max-w);
   margin-inline: auto;
-  padding-inline: var(--sp-2);
-  /* Safety: never wider than viewport */
+  /* Mobile: 1.25rem each side — enough gap from screen edges */
+  padding-inline: 1.25rem;
   box-sizing: border-box;
 }
 
@@ -765,11 +848,16 @@ a:focus-visible {
   position: absolute;
   inset: 0;
   z-index: 1;
-  /* Symmetric overlay for centred layout */
+  /* Multi-layer overlay — dark enough to make all text clearly readable */
   background:
-    radial-gradient(ellipse at 50% 50%, rgba(13, 11, 8, .3) 0%, rgba(13, 11, 8, .8) 100%),
-    linear-gradient(to top, rgba(13, 11, 8, .85) 0%, transparent 50%),
-    linear-gradient(to bottom, rgba(13, 11, 8, .55) 0%, transparent 35%);
+    /* Base dark tint across the whole image */
+    rgba(13, 11, 8, .62),
+    /* Heavier vignette from edges inward */
+    radial-gradient(ellipse at 50% 50%, rgba(13, 11, 8, .15) 0%, rgba(13, 11, 8, .75) 100%),
+    /* Strong gradient from bottom so lower text stays readable */
+    linear-gradient(to top, rgba(13, 11, 8, .95) 0%, rgba(13, 11, 8, .3) 45%, transparent 70%),
+    /* Top fade behind navbar */
+    linear-gradient(to bottom, rgba(13, 11, 8, .7) 0%, transparent 30%);
 }
 
 .hero-content {
@@ -791,15 +879,20 @@ a:focus-visible {
   text-transform: uppercase;
   color: var(--c-accent);
   margin-bottom: var(--sp-3);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, .6);
 }
 
 .hero-title {
   font-family: var(--ff-head);
   font-size: clamp(2.6rem, 9vw, 5.2rem);
-  font-weight: 300;
+  font-weight: 500;
   line-height: 1.05;
   letter-spacing: -.01em;
   margin-bottom: var(--sp-3);
+  /* Text shadow cuts through the image on all screens */
+  text-shadow:
+    0 2px 20px rgba(0, 0, 0, .8),
+    0 4px 40px rgba(0, 0, 0, .6);
 }
 
 .hero-title em {
@@ -810,11 +903,12 @@ a:focus-visible {
 
 .hero-subtitle {
   font-size: clamp(.95rem, 2.2vw, 1.1rem);
-  color: var(--c-text2);
+  color: var(--c-text);
   line-height: 1.75;
   max-width: 440px;
   margin-inline: auto;
   margin-bottom: var(--sp-5);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, .7);
 }
 
 .hero-actions {
@@ -1174,7 +1268,7 @@ a:focus-visible {
   gap: .65rem;
   padding: .5rem;
   border: 1px solid var(--c-border);
-  border-radius: 9px;
+  border-radius: 999px;
   background: rgba(255, 255, 255, .035);
   box-shadow: var(--sh-sm);
 }
@@ -1277,19 +1371,28 @@ a:focus-visible {
 .menu-card {
   background: var(--c-card);
   border-radius: var(--r-md);
+  /* Left border acts as a quiet accent line — thickens on hover */
   border: 1px solid var(--c-border2);
+  border-left: 2px solid transparent;
   overflow: hidden;
-  transition: border-color var(--t), box-shadow var(--t);
-  animation: fadeUp .38s var(--ease) both;
+  transition: border-color var(--t), border-left-color var(--t), box-shadow var(--t);
+  /* animation applied via .menu-card--animate class */
 }
 
 .menu-card:hover {
-  border-color: var(--c-border);
+  border-color: var(--c-border2);
+  border-left-color: var(--c-accent);
   box-shadow: var(--sh-md);
 }
 
 .menu-card.hidden {
   display: none;
+}
+
+/* Animation class added by JS after filter/search — uses per-card delay */
+.menu-card--animate {
+  animation: fadeUp .4s cubic-bezier(.4, 0, .2, 1) both;
+  animation-delay: var(--card-delay, 0s);
 }
 
 @keyframes fadeUp {
@@ -1304,71 +1407,79 @@ a:focus-visible {
   }
 }
 
-.menu-card-img {
-  position: relative;
-  aspect-ratio: 4/3;
-  overflow: hidden;
-  background: linear-gradient(135deg, #1a1208, #110c06);
+/* ── Menu card — sleek flat design, no header block ─────── */
+
+/* Accent div is hidden — tag now lives inside card body */
+.menu-card-accent {
+  display: none;
 }
 
-.menu-img-placeholder {
-  width: 100%;
-  height: 100%;
-  /* REPLACE: background: url('images/menu-item.jpg') center/cover no-repeat; */
-  background: linear-gradient(135deg, #1a1208, #110c06);
-  transition: transform .45s var(--ease);
+/* Card body: full-height, consistent padding */
+.menu-card-body {
+  padding: 1rem 1rem .9rem;
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
 }
 
-/* Real image */
-.menu-img {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform .45s var(--ease);
-}
-
-.menu-card:hover .menu-img-placeholder,
-.menu-card:hover .menu-img {
-  transform: scale(1.06);
-}
-
-.menu-cat-tag {
-  position: absolute;
-  z-index: 2;
-  top: .5rem;
-  left: .5rem;
-  padding: 3px 8px;
-  background: rgba(13, 11, 8, .85);
-  border: 1px solid var(--c-border);
-  border-radius: 16px;
-  font-size: .64rem;
+/* Category pill tag — refined, inline at top of card */
+.menu-card-accent__tag {
+  display: inline-block;
+  padding: 3px 9px;
+  background: transparent;
+  border: 1px solid rgba(201, 149, 42, .45);
+  border-radius: 20px;
+  font-size: .58rem;
   font-weight: 700;
-  letter-spacing: .06em;
+  letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--c-accent);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* Width fits content only */
+  align-self: flex-start;
+  line-height: 1.6;
+  transition: border-color var(--t), color var(--t);
 }
 
-.menu-card-body {
-  padding: .75rem;
+.menu-card:hover .menu-card-accent__tag {
+  border-color: var(--c-accent);
+  color: var(--c-accent-lt);
 }
 
+/* Item name */
 .menu-item-name {
   font-family: var(--ff-head);
-  font-size: 1.05rem;
+  font-size: 1.12rem;
   font-weight: 500;
-  margin-bottom: 3px;
+  color: var(--c-text);
+  line-height: 1.25;
+  margin: 0;
 }
 
+/* Description */
 .menu-item-desc {
   font-size: .78rem;
   color: var(--c-muted);
-  line-height: 1.5;
-  margin-bottom: var(--sp-2);
+  line-height: 1.55;
+  margin: 0;
+  /* Clamp to 2 lines so all cards stay same height feel */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Keep legacy .menu-cat-tag in case it appears elsewhere */
+.menu-cat-tag {
+  display: inline-block;
+  padding: 3px 9px;
+  background: transparent;
+  border: 1px solid rgba(201, 149, 42, .45);
+  border-radius: 20px;
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--c-accent);
 }
 
 .menu-item-footer {
@@ -2461,7 +2572,7 @@ textarea {
   }
 
   .container {
-    padding-inline: var(--sp-4);
+    padding-inline: 2rem;
   }
 
   /* About image becomes square-ish */
@@ -2664,7 +2775,7 @@ textarea {
 /* ── Large desktop: ≥1200px ──────────────────────────────── */
 @media (min-width: 1200px) {
   .container {
-    padding-inline: var(--sp-5);
+    padding-inline: 2.5rem;
   }
 
   .gallery-masonry {
@@ -2899,6 +3010,8 @@ textarea {
 
 .menu-page-section {
   padding-top: var(--sp-5);
+  /* Ensure menu page content never bleeds to screen edges */
+  overflow-x: hidden;
 }
 
 .menu-teaser-card {
