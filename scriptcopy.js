@@ -681,7 +681,7 @@ function handleFormSubmit(e) {
   lines.push("_Sent from pajulounge.com.np_");
 
   const waText = lines.join("\n");
-  const waURL = `https://wa.me/9779863037607?text=${encodeURIComponent(waText)}`;
+  const waURL = `https://wa.me/9779841546941?text=${encodeURIComponent(waText)}`;
 
   // ── Open WhatsApp ───────────────────────────────────────────
   window.open(waURL, "_blank", "noopener,noreferrer");
